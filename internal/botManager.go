@@ -9,46 +9,53 @@ import (
 	"tgBotHolidays/internal/message"
 )
 
-var gBot2 *tgbotapi.BotAPI
+var gBot *tgbotapi.BotAPI
 
-type addUser interface {
+// TODO какой тут должен быть интерфейс и какие методы поддерживать
+type WorkWithUser interface {
+	AddUser() string
+	GetUser() string
+	CheckUser() string
+	RegUser() string
 }
 
-func init() {
+func NewBot() *tgbotapi.BotAPI {
 	var tgToken string
 
 	if tgToken = os.Getenv("tg-token"); tgToken == "" {
 		panic("token is empty")
 	}
 
-	var err error
-
-	if gBot2, err = tgbotapi.NewBotAPI(tgToken); err != nil {
+	bot, err := tgbotapi.NewBotAPI(tgToken)
+	if err != nil {
 		log.Panic(err)
 	}
 
-	gBot2.Debug = true
+	bot.Debug = true
 
+	return bot
 }
 
-func StartBot() {
-	log.Printf("Authorized on account %s", gBot2.Self.UserName)
+// TODO Почему тут если сделать db *WorkWithUser в main это не работает?
+func StartBot(bot *tgbotapi.BotAPI, db WorkWithUser) {
+	gBot = bot // TODO Можно ли так делать?
+	log.Printf("Authorized on account %s", gBot.Self.UserName)
 	u := tgbotapi.NewUpdate(0)
 	u.Timeout = tgBotHolidays.UpdateConfigTimeout
 
-	updates := gBot2.GetUpdatesChan(u)
+	updates := gBot.GetUpdatesChan(u)
 
 	for update := range updates {
 		if update.Message != nil {
-			checkCommand(update.Message.Text, update)
+			checkCommand(update, db)
 		}
 	}
 }
 
 // "/start test"
 // checkCommand проверяет введенную в бот команду
-func checkCommand(message string, update tgbotapi.Update) {
-	command := strings.ToLower(strings.Split(message, " ")[0])
+func checkCommand(update tgbotapi.Update, db WorkWithUser) {
+	command := strings.ToLower(strings.Split(update.Message.Text, " ")[0])
 
 	switch command {
 	case "/start":
@@ -56,24 +63,49 @@ func checkCommand(message string, update tgbotapi.Update) {
 	case "/help":
 		helpMessage(update)
 	case "/register":
-		regUser(update)
+		regUser(update, db)
+	case "/testAdmin":
+		testAdmin(update, db)
 	}
 
 }
 
-func regUser(update tgbotapi.Update) {
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, message.HelpMessage)
-	gBot2.Send(msg)
+// функция для всяких тестов
+func testAdmin(update tgbotapi.Update, db WorkWithUser) {
+
+	db.CheckUser()
+	db.AddUser()
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, message.RegUser)
+	gBot.Send(msg)
+}
+
+func regUser(update tgbotapi.Update, db WorkWithUser) {
+	msg := tgbotapi.NewMessage(update.Message.Chat.ID, message.RegUser)
+	db.RegUser()
+	gBot.Send(msg)
 }
 
 func helpMessage(update tgbotapi.Update) {
 	msg := tgbotapi.NewMessage(update.Message.Chat.ID, message.HelpMessage)
-	gBot2.Send(msg)
+	gBot.Send(msg)
 }
 
 func startMessage(update tgbotapi.Update) {
-	msg := tgbotapi.NewMessage(update.Message.Chat.ID, message.StartMessage)
-	gBot2.Send(msg)
+	var msg tgbotapi.MessageConfig
+	//TODO переделать сообщение
+	msg = tgbotapi.NewMessage(update.Message.Chat.ID, message.HelpMessage)
+	if !checkUser() {
+		msg = tgbotapi.NewMessage(update.Message.Chat.ID, message.StartMessage)
+	}
+
+	gBot.Send(msg)
+
+}
+
+// Проверяем есть ли этот юзер в системе
+func checkUser() bool {
+	//TODO добавить проверку пользователя
+	return false
 }
 
 func checkRegister() {

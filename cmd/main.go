@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"tgBotHolidays/internal"
+	"tgBotHolidays/internal/storage/postgre"
 )
 
 func main() {
@@ -11,5 +13,14 @@ func main() {
 	// Слой с тг ботом
 
 	// Вызов работы бота
-	internal.StartBot()
+
+	t, err := postgre.NewPgConnect()
+
+	if err != nil {
+		fmt.Println("ОШИБКА")
+		panic(err)
+	}
+
+	tgBot := internal.NewBot()
+	internal.StartBot(tgBot, t)
 }
